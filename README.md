@@ -39,12 +39,7 @@
 
 ### 发音与音标
 
-- **默认发美音，且只读一次。** 菜单里可以改成英音；`accent: uk` 时朗读用英音嗓音与英音录音。
-- 音标显示方式可选：只美音（默认）/ 只英音 / 英美都显示 / 不显示。选「都显示」时两条音标各带一个
-  `US` / `UK` 小标记；两者相同时只显示一条。
-- 重复朗读已被两层防护消除：语音启动超时只在**全程没有任何音频活动**时才回落录音
-  （部分平台不触发 `onstart` 但实际已出声，旧实现会因此再播一遍录音），
-  以及 400ms 内的重复调用会被去抖忽略。
+- **默认发美音，且只读一次。** 菜单里可以改成英音；
 
 ### 关于「为什么必须停一下」（设计取舍）
 
@@ -82,12 +77,6 @@ github:ilyskyo/Word-Hover-dsh
 
 ```text
 D:\plugins\Word-Hover-dsh
-```
-
-### 3. 从 npm 安装（若已发布）
-
-```text
-dsh-plugin-word-hover
 ```
 
 装完 **必须完全退出 DSH 再重新打开**（关闭窗口 ≠ 退出进程），新的宿主端模块与客户端 bundle 才会加载。
@@ -233,130 +222,7 @@ React element），插入包裹元素会与 React 的重渲染争夺同一批节
 **个人学习自用风险可控；请勿用于商业分发或批量抓取。** 如需商用，请把 `provider` 改成
 `custom` 指向你自有的合规后端（例如有道智云、百度翻译的付费接口）。
 
-插件侧的相应对策：宿主端对每个来源 IP 做限流（默认 120 次/分钟）、输入只接受单个英文单词、
-失败自动降级到下一个 provider。
 
-### 2. provider 可用性（本机实测）
-
-| provider | 实测 | 说明 |
-|---|---|---|
-| `youdao`（jsonapi） | ✅ 可用，约 237ms | 字段最全：音标 + 词性 + 中英释义 + 双语例句 |
-| `suggest`（有道简版） | ✅ 可用，约 60ms | 响应仅约 200 字节，但释义被截断、无音标 |
-| `freedict`（Free Dictionary） | ❌ 8s 超时 | 该接口稳定性差（多次 Cloudflare 522），只作末位兜底 |
-
-### 3. 排障：页面交互异常 / 插件卡住（已修复过一次）
-
-**历史事故**：`package.json` 的 `files` 字段引用了一个已被删除的 `assets/` 目录，
-插件管理器元数据扫描时报 `ENOENT ... assets`，插件加载流程卡在半途，
-表现为「查过一次词后页面划不动、点不了」。修复方式是让清单与实际文件一一对应。
-
-`node scripts/check-integrity.mjs` 会校验 `main` / `icon` / `exports` / `files` /
-`dsh.bundle.patch` 引用的路径是否真实存在，这类问题不会再溜过去。
-
-如果你再遇到页面交互异常：
-
-```js
-__DSH_WORD_HOVER__.panic()          // 紧急停止插件
-__DSH_WORD_HOVER__.debug()          // 查看覆盖层实际命中区域
-__DSH_WORD_HOVER__.debug().hitTest(600, 400)  // 验证某坐标是否命中单词
-```
-
-`debug()` 返回容器的 `pointerEvents` / `zIndex` / 尺寸、浮层的 `display` /
-`pointerEvents` / 可见标记与坐标，以及**屏幕中心点当前命中的元素**。
-若该元素是本插件的容器或浮层，说明覆盖层没有正确变得不可交互。
-
-**覆盖层的硬性不变量**（已有回归测试守住）：
-
-1. 容器恒为 `pointer-events: none`；
-2. 浮层隐藏态用 `display: none` —— 彻底移出命中测试，而不是只靠 `opacity: 0`；
-3. 测量尺寸阶段参与布局但不可见、不可交互；
-4. 浮层连续可见超过 20 秒自动关闭（锁定态除外）；
-5. 插件只读宿主 DOM，不修改、不包裹、不替换任何节点。
-
-### 4. 排障：点击朗读没反应（已修复过一次）
-
-**历史事故**：发音按钮出现了，但点了没有声音也没有提示。根因是三处叠加：
-`speechSynthesis.cancel()` 紧接 `speak()` 会丢弃刚排队的 utterance；
-语音列表为空时给 utterance 赋 `voice = undefined` 在部分 Electron 构建下静默失败；
-失败路径没有任何用户反馈。
-
-现在发音有完整的降级与反馈链：
-
-```
-系统语音合成（700ms 内没 onstart 就判定失败）
-      ↓
-词典返回的 mp3 录音
-      ↓
-浮层底部明确提示「无法朗读：系统没有可用的英语语音，且没有可用的音频」
-```
-
-### 5. 排障：滚到底仍有一截在任务栏下方（已修复过一次）
-
-**根因**：定位用的高度和实际渲染的高度**不是同一个值** ——
-`position()` 在测量尺寸后把 `maxHeight` 还原成了空字符串，于是浮层渲染时会撑到自然高度，
-而 `computePosition` 是拿测量时算好的高度去算 `top` 的，底边就溢出到视口之外。
-
-**修法**：`maxHeight` 在测量与渲染两个阶段都固化；`computePosition` 接收 `maxHeight`
-并返回收敛后的高度，调用方直接用这个值设置 `max-height`；再加一道视口安全线防御。
-
-### 6. DSH 版本漂移
-
-选择器锚定在 `data-*` 属性（`data-conversation-region` / `data-conversation-scroll` /
-`data-chat-flow-kind` / `data-slot`）和两个全局类名（`.md-code-block` / `.md-table-wide`）上，
-这些比 CSS Module 的哈希前缀稳定得多。但 DSH 升级后仍可能变化：
-
-```powershell
-node scripts/verify-page.mjs
-```
-
-如果助手回复块没命中，在控制台跑这一行并把结果提 Issue：
-
-```js
-[...document.querySelectorAll('[data-chat-flow-kind]')].map(e => e.getAttribute('data-chat-flow-kind'))
-```
-
-只需改 `src/client/dom.js` 顶部的 `FLOW_KIND_ATTR` / `ASSISTANT_KIND` 两个常量，然后重新构建。
-
-### 7. 官方插件规范的一处偏离
-
-官方 `cordis-plugin-development` 指南写着「不要把 DOM 写到组件外、不要 append 到 `document.body`」。
-本插件把容器插到应用根节点（`#root` / `#app` / `[data-dsh-boot]`）内部而不是 `body`，
-并且**只读宿主 DOM**。但「对既有正文做逐词悬停」在 DSH 的插槽体系里确实没有对应扩展点，
-所以这是有意为之的取舍。
-
-### 8. 其它
-
-- 音节/词形变化的来源取决于上游返回，不保证每个词都有。
-- 浮层宽度上限 420px；高度按「锚点上下更大的一侧」收敛，超出内容在浮层内部滚动。
-- 上游较慢时会先显示骨架（有 8s 超时兜底）。
-
----
-
-## 六、开发
-
-```powershell
-# 重新构建客户端 bundle（改了 src/client/* 之后必须跑，并把 lib/client.js 一起提交）
-node tools/build.mjs
-
-# 跑全部测试套件（推荐；任一失败即非零退出码）
-npm test
-
-# 也可以单独跑某一套
-node scripts/check-integrity.mjs   # 编码 + package.json 路径引用检查
-node scripts/test-render.mjs       # 渲染结构 + 类名与 CSS 对齐
-node scripts/test-speak.mjs        # 发音的全部降级分支
-node scripts/selftest.mjs          # 客户端 bundle 注册契约 / 生命周期 / 纯函数 / 定位
-node scripts/test-providers.mjs    # provider 归一化（离线 fixture）
-node scripts/test-host.mjs         # 宿主端端到端
-node scripts/test-host.mjs --live  # 额外做一次真实联网自检
-
-# 真实页面 DOM 探针（需要 DSH 带 --remote-debugging-port 启动）
-node scripts/verify-page.mjs
-```
-
-> ⚠️ 不要用 PowerShell 的 `Get-Content` / `Set-Content` 处理这些源码文件：
-> 默认编码会按本地代码页解析 UTF-8，导致中文注释变乱码、甚至破坏 JS 语法。
-> `scripts/check-integrity.mjs` 就是为兜住这类事故写的。
 
 ### 目录
 
@@ -375,18 +241,9 @@ dsh-plugin-word-hover/
 └── scripts/                  # 测试与验证脚本（无测试框架依赖）
 ```
 
-### 贡献
-
-1. 改完 `src/client/*` **必须**执行 `node tools/build.mjs` 并提交 `lib/client.js`
-   —— DSH 加载的是构建产物，不会替你构建；
-2. 提交前跑 `npm test`，全绿再提 PR；
-3. 修 bug 时请顺手补一条会失败的断言。这个项目的多数断言都来自真实事故
-   （类名与 CSS 不同步、浮层溢出视口、按钮指向不存在的目标……），
-   README §五 有完整的「事故档案」。
-
 ---
 
-## 七、许可证与合规
+## 六、许可证与合规
 
 - **代码**：[MIT](LICENSE)。你可以自由使用、修改、分发、商用**本代码**。
 - **词典数据**：不在本许可证范围内，版权归各词典提供方所有。详见
