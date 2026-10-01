@@ -1,0 +1,63 @@
+{
+  "name": "dsh-plugin-word-hover",
+  "version": "0.2.0",
+  "description": "悬停 AI 英文回复中的单词，高亮并弹出中文释义、音标、词性、例句（DeepSeek Harness 客户端插件）。",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "dictionary",
+    "english",
+    "chinese",
+    "hover",
+    "translation"
+  ],
+  "main": "lib/index.js",
+  "icon": "./icon.svg",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ilyskyo/Word-Hover-dsh.git"
+  },
+  "homepage": "https://github.com/ilyskyo/Word-Hover-dsh",
+  "bugs": {
+    "url": "https://github.com/ilyskyo/Word-Hover-dsh/issues"
+  },
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "lib",
+    "locale",
+    "icon.svg",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE",
+    "THIRD-PARTY-NOTICES.md"
+  ],
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "test": "node scripts/run-all.mjs",
+    "check": "node scripts/check-integrity.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-locale"
+      ]
+    }
+  }
+}

@@ -1,0 +1,53 @@
+# 只新增本插件自己的一行，不覆盖 DSH 任何官方条目。
+#
+# ⚠️ 重要：DSH 的 patch 条目是「整体替换 config」而不是合并。
+#    如果你在 profile 或 $DSH_HOME 的 cordis.patch.yml 里按 id 覆盖这一行，
+#    必须把想保留的字段全部重写一遍，否则会被清空。
+#
+# 禁用插件：把下面的 disabled: false 改成 true（或用设置面板的开关）。
+# 注意：只写注释的 patch 文件会让 DSH 启动失败，必须保留至少一条有效条目。
+- insert:
+    - id: dsh-word-hover
+      name: 'dsh-plugin-word-hover'
+      disabled: false
+      config:
+        # ── 基本开关 ───────────────────────────────────────────────
+        enabled: true # 插件总开关；false 时客户端完全不处理任何文本
+        targetLang: zh-CN # 目标语言（目前释义固定为中文，此字段预留给多语扩展）
+        # ── 交互 ─────────────────────────────────────────────────
+        trigger: hover # hover=悬停查询；click=点击查询
+        hoverDelayMs: 240 # 悬停多久后触发（需求 200–300ms）
+        hideDelayMs: 250 # 移出单词与浮层后多久关闭
+        lockOnClick: true # 点击单词锁定浮层
+        speakEnabled: true # 显示发音按钮
+        # ── 查询与降级链 ──────────────────────────────────────────
+        provider: youdao # 主翻译源：youdao | freedict | suggest | custom
+        fallbackProviders: # 主源失败时依次降级（空数组 = 不降级）
+          - suggest
+          - freedict
+        timeoutMs: 8000 # 单次请求超时
+        concurrency: 4 # 客户端最大并发
+        lookupPath: /word-hover/dict # 宿主端代理路径；设成绝对 URL 可指向你自己的后端
+        allowDirectFallback: false # 宿主端不可用时，是否允许客户端直连公网接口（有 CORS/合规风险）
+        # ── 缓存 ─────────────────────────────────────────────────
+        # ⚠️ 本插件**不缓存任何释义内容**。
+        #    主源的权利人条款明确写着返回数据「严禁缓存、再利用与转卖」，
+        #    所以每次查词都真实请求上游，结果只显示在浮层里、用完即弃；
+        #    没有内存词典、没有 IndexedDB、没有 localStorage 词条。
+        #
+        #    下面这一项不是缓存，只是「上游已明确答复查不到」的短时抑制，
+        #    避免同一个不存在的词被反复请求。只记布尔事实与时间戳，
+        #    不保存任何释义内容，随页面刷新即消失。设为 0 则完全不记。
+        sessionTtlMs: 300000
+        # ── 宿主端代理 ────────────────────────────────────────────
+        proxy: true # 是否注册宿主端代理路由
+        proxyRateLimitPerMinute: 120 # 每个来源 IP 每分钟最多几次查词
+        # ── 展示 ─────────────────────────────────────────────────
+        showPartOfSpeech: true
+        showPhonetic: true
+        showDefinition: true # 英文释义
+        showExample: true # 例句
+        showSource: true # 来源标识
+        # ── 排除规则 ──────────────────────────────────────────────
+        # 命中这些选择器的元素内部不做任何处理（代码块等默认已排除）
+        excludeSelectors: []

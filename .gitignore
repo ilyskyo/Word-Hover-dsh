@@ -1,0 +1,30 @@
+# 依赖与构建缓存
+node_modules/
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+.npm/
+*.tgz
+
+# 打包产物
+artifacts/
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# 临时与调试产物
+*.log
+*.tmp
+_probe/
+coverage/
+
+# 注意：lib/client.js 是构建产物，但**必须提交**。
+# 原因：DSH 的客户端插件系统加载的是已构建的 bundle，
+# 用户通过 git 安装时不会运行构建步骤。改完 src/client/* 后请执行
+#   node tools/build.mjs
+# 并把更新后的 lib/client.js 一起提交。

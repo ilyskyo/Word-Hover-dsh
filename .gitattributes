@@ -1,0 +1,27 @@
+# 统一换行符为 LF。
+#
+# 为什么必须显式声明：
+#   Windows 上 Git 默认 core.autocrlf=true，会把文本文件以 CRLF 提交，
+#   于是每个克隆者拿到的都是 CRLF。本仓库对换行符敏感：
+#     - tools/build.mjs 把 src/client/* 内联进 lib/client.js，CRLF 会进入产物；
+#     - scripts/check-integrity.mjs 做的是字节级校验。
+#   所以这里强制 LF，避免「同一个文件在不同机器上是不同内容」。
+#
+# 注意：lib/client.js 是构建产物但**必须提交**（DSH 加载的是构建产物，
+#       不会替用户构建），因此它同样按文本处理并归一化为 LF。
+* text=auto eol=lf
+
+# 明确标记为二进制，避免被做换行转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.zip binary
+*.tgz binary
+*.mp3 binary
