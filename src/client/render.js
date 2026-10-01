@@ -81,30 +81,87 @@ export function normalizeWordInfo(info) {
       .filter((m) => m && (m.translation || m.definition))
       .slice(0, 8)
     : [];
+
+  // 音频：新格式是 { us, uk }；兼容老格式的单个字符串
+  let audioUs = '';
+  let audioUk = '';
+  if (typeof info.audio === 'string') {
+    audioUs = info.audio;
+  } else if (info.audio && typeof info.audio === 'object') {
+    audioUs = typeof info.audio.us === 'string' ? info.audio.us : '';
+    audioUk = typeof info.audio.uk === 'string' ? info.audio.uk : '';
+  }
+
+  const usPhonetic = stripTags(String(info.usPhonetic ?? ''));
+  const ukPhonetic = stripTags(String(info.ukPhonetic ?? ''));
+  const phonetic = stripTags(String(info.phonetic ?? '')) || usPhonetic || ukPhonetic;
+
+  const tags = Array.isArray(info.tags)
+    ? info.tags.map((t) => stripTags(String(t ?? ''))).filter(Boolean).slice(0, 8)
+    : [];
+
   return {
     word,
-    phonetic: stripTags(String(info.phonetic ?? '')),
+    phonetic,
+    usPhonetic,
+    ukPhonetic,
+    tags,
     meanings,
     source: typeof info.source === 'string' ? info.source : 'unknown',
-    audio: typeof info.audio === 'string' ? info.audio : '',
+    audio: { us: audioUs, uk: audioUk },
     error: typeof info.error === 'string' ? info.error : '',
   };
+}
+
+/** 把音标包成 /.../ 形式（已经带斜杠或方括号的不动）。 */
+function wrapPhonetic(text) {
+  if (!text) return '';
+  return /^[/[ˈˌ]/.test(text) ? text : `/${text}/`;
+}
+
+/**
+ * 按配置挑出要显示的音标。
+ * @param {object} info 已规范化的 WordInfo
+ * @param {'no'|'us'|'uk'|'both'|boolean} mode
+ *        'no'/false 不显示；'us' 美音（默认）；'uk' 英音；'both' 两个都显示
+ * @returns {Array<{text:string,label:string}>}
+ */
+export function phoneticEntries(info, mode = 'us') {
+  if (mode === false || mode === 'no' || mode == null) return [];
+  const us = wrapPhonetic(info?.usPhonetic || '');
+  const uk = wrapPhonetic(info?.ukPhonetic || '');
+  const fallback = wrapPhonetic(info?.phonetic || '');
+
+  // 只有一个来源时，任何模式都显示它
+  if (!us && !uk) return fallback ? [{ text: fallback, label: '' }] : [];
+
+  if (mode === 'both') {
+    const out = [];
+    if (us) out.push({ text: us, label: 'us' });
+    if (uk && uk !== us) out.push({ text: uk, label: 'uk' });
+    return out;
+  }
+  if (mode === 'uk') return [{ text: uk || fallback, label: uk ? 'uk' : '' }];
+  return [{ text: us || fallback, label: us ? 'us' : '' }];
 }
 
 /**
  * 渲染释义区。
  * @param {Document} doc
  * @param {object} info         已规范化的 WordInfo
- * @param {object} options      { showPartOfSpeech, showPhonetic, showDefinition, showExample, showSource }
+ * @param {object} options
+ *        showPartOfSpeech, showPhonetic ('no'|'us'|'uk'|'both'), showDefinition,
+ *        showExample, showTags, showSource
  * @returns {DocumentFragment}
  */
 export function renderDictionaryBody(doc, info, options = {}) {
   const frag = doc.createDocumentFragment();
   const opt = {
     showPartOfSpeech: true,
-    showPhonetic: true,
+    showPhonetic: 'us',
     showDefinition: true,
     showExample: true,
+    showTags: true,
     showSource: true,
     ...options,
   };
@@ -118,13 +175,33 @@ export function renderDictionaryBody(doc, info, options = {}) {
   title.textContent = info.word;
   head.append(title);
 
-  if (opt.showPhonetic && info.phonetic) {
-    const phon = doc.createElement('span');
-    phon.className = 'dsh-wh-phonetic';
-    phon.textContent = /^[/[]/.test(info.phonetic) ? info.phonetic : `/${info.phonetic}/`;
-    head.append(phon);
+  for (const phon of phoneticEntries(info, opt.showPhonetic)) {
+    const span = doc.createElement('span');
+    span.className = 'dsh-wh-phonetic';
+    span.textContent = phon.text;
+    if (phon.label) span.dataset.accent = phon.label;
+    head.append(span);
   }
   frag.append(head);
+
+  // 防御：外部传入的 info 可能没有 tags（自定义后端、旧数据），
+  // 直接读 .length 会抛 TypeError 把整个浮层渲染打断。
+  const tagList = Array.isArray(info.tags) ? info.tags.filter(Boolean) : [];
+
+  // ── 话题 · 标签：单独成行 ───────────────────────────────────────
+  if (opt.showTags && tagList.length > 0) {
+    const row = doc.createElement('div');
+    row.className = 'dsh-wh-tags';
+    const label = doc.createElement('span');
+    label.className = 'dsh-wh-tags-label';
+    label.textContent = '话题 · 标签';
+    row.append(label);
+    const list = doc.createElement('span');
+    list.className = 'dsh-wh-tags-list';
+    list.textContent = tagList.join(' · ');
+    row.append(list);
+    frag.append(row);
+  }
 
   // ── 错误态 ─────────────────────────────────────────────────────
   if (info.error || info.meanings.length === 0) {

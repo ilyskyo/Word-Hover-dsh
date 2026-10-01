@@ -89,6 +89,8 @@ export function createWordHover({ config: hostConfig } = {}) {
     // 状态机：idle | hover | locked
     mode: 'idle',
     activeWord: null, // { word, raw, rects, block, signature }
+    /** 最近一次渲染的词典数据；菜单改动显示项时用它原地重绘，无需重新请求 */
+    lastInfo: null,
     hoverTimer: 0,
     hideTimer: 0,
     /**
@@ -458,6 +460,7 @@ export function createWordHover({ config: hostConfig } = {}) {
     cancelMaxVisible();
     state.mode = 'idle';
     state.activeWord = null;
+    state.lastInfo = null;
     state.pendingHit = null;
     overlay?.hide();
     stopSpeaking();
@@ -492,6 +495,7 @@ export function createWordHover({ config: hostConfig } = {}) {
 
   function renderInfo(hit, info) {
     if (!overlay) return;
+    state.lastInfo = info;
     const config = settings.get();
     overlay.showInfo(info, {
       options: config,
@@ -501,9 +505,73 @@ export function createWordHover({ config: hostConfig } = {}) {
     overlay.mountHeaderActions({
       canSpeak: config.speakEnabled && Boolean(info.word),
       locked: state.mode === 'locked',
+      accent: config.accent,
       onSpeak: () => speakWord(info),
       onToggleLock: () => toggleLock(),
+      menuItems: buildMenuItems(config),
+      onMenuSelect: (id, value) => handleMenuSelect(id, value),
     });
+  }
+
+  /**
+   * 纵向三点菜单的内容。
+   *
+   * 这里只放「不常用但想改」的项：发音口音与几个显示开关。
+   * 后续要加设置项，往这个数组里加一条即可，头部按钮不会再变挤。
+   */
+  function buildMenuItems(config) {
+    return [
+      { type: 'group', label: '发音' },
+      {
+        id: 'accent',
+        type: 'radio',
+        label: '默认发音',
+        value: config.accent,
+        options: [
+          { value: 'us', label: '美音（默认）' },
+          { value: 'uk', label: '英音' },
+        ],
+      },
+      {
+        id: 'phoneticDisplay',
+        type: 'radio',
+        label: '音标显示',
+        value: config.phoneticDisplay,
+        options: [
+          { value: 'us', label: '只显示美音' },
+          { value: 'uk', label: '只显示英音' },
+          { value: 'both', label: '英美都显示' },
+          { value: 'no', label: '不显示' },
+        ],
+      },
+      { type: 'group', label: '显示内容' },
+      { id: 'showExample', type: 'checkbox', label: '显示例句', value: config.showExample },
+      { id: 'showTags', type: 'checkbox', label: '显示话题 · 标签', value: config.showTags },
+      { id: 'showPartOfSpeech', type: 'checkbox', label: '显示词性', value: config.showPartOfSpeech },
+      { id: 'showDefinition', type: 'checkbox', label: '显示英文释义', value: config.showDefinition },
+      { id: 'showSource', type: 'checkbox', label: '显示来源标识', value: config.showSource },
+    ];
+  }
+
+  /** 菜单选择：写回设置并立刻重绘当前浮层。 */
+  function handleMenuSelect(id, value) {
+    settings.patch({ [id]: value });
+    // 立刻用新配置重绘，不需要等下一次悬停
+    const info = state.lastInfo;
+    const hit = state.activeWord;
+    if (info && hit) {
+      overlay?.showInfo(info, { options: settings.get(), locked: state.mode === 'locked' });
+      overlay?.position(hit.rects[0]);
+      overlay?.mountHeaderActions({
+        canSpeak: settings.get().speakEnabled && Boolean(info.word),
+        locked: state.mode === 'locked',
+        accent: settings.get().accent,
+        onSpeak: () => speakWord(info),
+        onToggleLock: () => toggleLock(),
+        menuItems: buildMenuItems(settings.get()),
+        onMenuSelect: (itemId, itemValue) => handleMenuSelect(itemId, itemValue),
+      });
+    }
   }
 
   /**
@@ -514,11 +582,15 @@ export function createWordHover({ config: hostConfig } = {}) {
    */
   function speakWord(info) {
     const word = info.word;
-    speak(word, info.audio, {
+    const accent = settings.get().accent;
+    speak(word, {
+      audio: info.audio,
+      accent,
       onStatus(status) {
         const hint = overlay?.body.querySelector('.dsh-wh-hint');
         if (!hint) return;
-        if (status === 'speaking') hint.textContent = `正在朗读「${word}」…`;
+        const accentLabel = accent === 'uk' ? '英音' : '美音';
+        if (status === 'speaking') hint.textContent = `正在朗读「${word}」（${accentLabel}）…`;
         else if (status === 'audio') hint.textContent = `正在播放「${word}」的录音…`;
         else hint.textContent = `无法朗读「${word}」：系统没有可用的英语语音，且没有可用的音频`;
         // 几秒后回到常规提示

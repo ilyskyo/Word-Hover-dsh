@@ -44,11 +44,23 @@ class El {
   set className(v) { this._className = String(v); }
   matches(sel) {
     const s = sel.trim();
+    // class 选择器
     if (s.startsWith('.')) return this._className.split(/\s+/).includes(s.slice(1));
+    // 纯属性选择器，如 [role="menuitemradio"]
+    if (s.startsWith('[')) {
+      const m = /^\[([\w-]+)(?:=["']?([^"'\]]*)["']?)?\]$/.exec(s);
+      if (!m) return false;
+      const [, key, expected] = m;
+      const actual = this.attributes[key] ?? this.dataset[key];
+      if (actual === undefined) return false;
+      return expected === undefined || String(actual) === expected;
+    }
+    // tag[attr] / tag[attr="v"]
     if (s.includes('[')) {
-      const [tag, attr] = s.split('[');
-      const key = attr.replace(/\]$/, '').split('=')[0];
-      return this.tagName === tag.toUpperCase() && (key in this.attributes || key in this.dataset);
+      const idx = s.indexOf('[');
+      const tag = s.slice(0, idx);
+      if (this.tagName !== tag.toUpperCase()) return false;
+      return this.matches(s.slice(idx));
     }
     return this.tagName === s.toUpperCase();
   }
@@ -105,10 +117,18 @@ class El {
 const doc = {
   createElement: (tag) => new El(tag),
   createDocumentFragment: () => { const f = new El('#fragment'); f.__frag = true; return f; },
+  // 菜单会给 document / window 挂监听，这里给出最小实现
+  listeners: new Map(),
+  addEventListener(type, handler) {
+    if (!this.listeners.has(type)) this.listeners.set(type, new Set());
+    this.listeners.get(type).add(handler);
+  },
+  removeEventListener(type, handler) { this.listeners.get(type)?.delete(handler); },
+  defaultView: { innerWidth: 1280, innerHeight: 800, addEventListener() {}, removeEventListener() {} },
 };
 
 const allText = (node) => (node.textContent || '') + (node.children || []).map(allText).join('');
-const opts = { showPartOfSpeech: true, showPhonetic: true, showDefinition: true, showExample: true, showSource: true };
+const opts = { showPartOfSpeech: true, showPhonetic: 'us', showDefinition: true, showExample: true, showSource: true };
 
 console.log('浮层渲染结构测试\n');
 
@@ -185,6 +205,97 @@ check('无按钮指路文案', !/点击\s*🔊|点击喇叭/.test(OVERLAY_CSS + 
   defaultHintText({}));
 check('锁定时提示如何解除', /Esc/.test(defaultHintText({ locked: true })), defaultHintText({ locked: true }));
 check('未锁定时提示可锁定', /锁定/.test(defaultHintText({ locked: false })), defaultHintText({ locked: false }));
+
+console.log('\n[7] 音标显示模式');
+{
+  const dualInfo = {
+    word: 'bug',
+    phonetic: 'bʌɡ',
+    usPhonetic: 'bʌɡ',
+    ukPhonetic: 'bʌɡ',
+    meanings: [{ translation: '虫子' }],
+    source: 'youdao',
+  };
+  const twoDiff = { ...dualInfo, ukPhonetic: 'bʌg' };
+
+  const usOnly = renderDictionaryBody(doc, dualInfo, { showPhonetic: 'us' });
+  check('只显示美音时只有一个音标', usOnly.querySelectorAll(`.${P}phonetic`).length === 1,
+    String(usOnly.querySelectorAll(`.${P}phonetic`).length));
+
+  const both = renderDictionaryBody(doc, twoDiff, { showPhonetic: 'both' });
+  check('英美都显示时有两个音标', both.querySelectorAll(`.${P}phonetic`).length === 2,
+    String(both.querySelectorAll(`.${P}phonetic`).length));
+
+  const noPhon = renderDictionaryBody(doc, dualInfo, { showPhonetic: 'no' });
+  check('不显示音标时没有音标节点', noPhon.querySelectorAll(`.${P}phonetic`).length === 0,
+    String(noPhon.querySelectorAll(`.${P}phonetic`).length));
+
+  // 英美音标相同时不重复显示两条
+  const sameBoth = renderDictionaryBody(doc, dualInfo, { showPhonetic: 'both' });
+  check('英美音标相同时合并为一条', sameBoth.querySelectorAll(`.${P}phonetic`).length === 1,
+    String(sameBoth.querySelectorAll(`.${P}phonetic`).length));
+
+  const info = normalizeWordInfo({ ...dualInfo, tags: ['CET4', '考研'] });
+  check('normalizeWordInfo 保留 tags', info.tags.length === 2, JSON.stringify(info.tags));
+  const withTags = renderDictionaryBody(doc, info, opts);
+  check('话题 · 标签单独成行', Boolean(withTags.querySelector(`.${P}tags`)), '缺少 tags 行');
+  check('标签行有标题', /话题/.test(allText(withTags)), allText(withTags).slice(0, 60));
+  check('标签内容都在', /CET4/.test(allText(withTags)) && /考研/.test(allText(withTags)), allText(withTags).slice(0, 80));
+  const noTags = renderDictionaryBody(doc, info, { ...opts, showTags: false });
+  check('showTags=false 时不渲染标签行', !noTags.querySelector(`.${P}tags`), '仍然渲染了 tags 行');
+
+  // 标签必须排在释义之前（单独一行，不混进释义文本）
+  const transNode = withTags.querySelector(`.${P}translation`);
+  check('标签不与释义混在一起', !/CET4/.test(allText(transNode || new El('div'))), allText(transNode || new El('div')));
+}
+
+console.log('\n[8] 纵向溢出菜单');
+{
+  const { OverflowMenu } = await import('../src/client/menu.js');
+  const menu = new OverflowMenu({ append() {} }, doc);
+  const trigger = menu.createTrigger('更多设置');
+  check('触发器是竖三点', trigger.textContent === '⋮', trigger.textContent);
+  check('触发器带 aria-haspopup', trigger.getAttribute('aria-haspopup') === 'menu');
+  check('初始 aria-expanded 为 false', trigger.getAttribute('aria-expanded') === 'false');
+
+  const picked = [];
+  const items = [
+    { type: 'group', label: '发音' },
+    {
+      id: 'accent', type: 'radio', label: '默认发音', value: 'us',
+      options: [{ value: 'us', label: '美音（默认）' }, { value: 'uk', label: '英音' }],
+    },
+    { id: 'showExample', type: 'checkbox', label: '显示例句', value: true },
+  ];
+  // 用真实挂载点：把 shadow 换成可记录 append 的桩
+  let appended = null;
+  menu.shadow = { append(node) { appended = node; } };
+  menu.setItems(items, (id, value) => picked.push([id, value]));
+  menu.show(trigger);
+
+  check('菜单已渲染', Boolean(appended));
+  check('菜单 role=menu', appended?.getAttribute('role') === 'menu');
+  const radios = appended.querySelectorAll('[role="menuitemradio"]');
+  check('渲染出两个口音选项', radios.length === 2, String(radios.length));
+  check('当前口音被勾选', radios[0].getAttribute('aria-checked') === 'true' && radios[1].getAttribute('aria-checked') === 'false',
+    radios.map((r) => r.getAttribute('aria-checked')).join(','));
+  check('有分组标题', /发音/.test(allText(appended)), allText(appended).slice(0, 40));
+
+  // 点第二项 → 回调 + 就地更新勾选
+  radios[1].click();
+  check('选择回调收到 id 与值', picked.length === 1 && picked[0][0] === 'accent' && picked[0][1] === 'uk',
+    JSON.stringify(picked));
+  check('勾选已就地切换', radios[1].getAttribute('aria-checked') === 'true' && radios[0].getAttribute('aria-checked') === 'false',
+    radios.map((r) => r.getAttribute('aria-checked')).join(','));
+
+  const checks = appended.querySelectorAll('[role="menuitemcheckbox"]');
+  check('渲染出显示开关', checks.length === 1, String(checks.length));
+  checks[0].click();
+  check('勾选框回调为取反后的值', picked[1]?.[1] === false, JSON.stringify(picked[1]));
+
+  menu.close();
+  check('关闭后 aria-expanded 复位', trigger.getAttribute('aria-expanded') === 'false');
+}
 
 console.log(`\n结果：${checks - failures}/${checks} 通过`);
 if (failures > 0) { console.log(`失败 ${failures} 项`); process.exitCode = 1; } else { console.log('全部通过 ✓'); }

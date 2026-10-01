@@ -127,6 +127,100 @@ export const OVERLAY_CSS = `
   align-self: center;
 }
 
+/* ── 话题 · 标签（单独成行） ───────────────────────────────────── */
+.dsh-wh-tags {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0 0 8px;
+  padding: 4px 7px;
+  border-radius: var(--dsw-radius-sm, 6px);
+  background: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.04));
+  font-size: 11px;
+  line-height: 1.5;
+}
+.dsh-wh-tags-label {
+  flex: 0 0 auto;
+  color: var(--dsw-alias-label-tertiary, #81858c);
+  white-space: nowrap;
+}
+.dsh-wh-tags-list {
+  color: var(--dsw-alias-label-secondary, #61666b);
+  word-break: break-word;
+}
+
+/* 英美音标同时显示时，用淡色区分标记 */
+.dsh-wh-phonetic[data-accent]::before {
+  content: attr(data-accent);
+  font-size: 9px;
+  text-transform: uppercase;
+  opacity: 0.55;
+  margin-right: 2px;
+  font-family: var(--dsw-font-family, sans-serif);
+}
+
+/* ── 纵向溢出菜单（竖三点） ────────────────────────────────────── */
+.dsh-wh-btn-icon {
+  /* 图标按钮：等宽正方形，避免竖向省略号把行高撑开 */
+  padding: 4px 5px;
+  font-size: 14px;
+  line-height: 1;
+  min-width: 24px;
+  text-align: center;
+}
+.dsh-wh-menu {
+  position: fixed;
+  z-index: 2147483001;
+  min-width: 200px;
+  max-width: min(300px, calc(100vw - 16px));
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  padding: 4px;
+  pointer-events: auto;
+  border-radius: var(--dsw-radius-lg, 10px);
+  border: 1px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12));
+  background: var(--dsw-specific-menu, var(--dsw-menu-surface-fill, #ffffff));
+  -webkit-backdrop-filter: var(--dsw-menu-backdrop-filter, none);
+  backdrop-filter: var(--dsw-menu-backdrop-filter, none);
+  box-shadow: var(--dsw-shadow-lv3, 0 8px 28px rgba(0, 0, 0, 0.18));
+  font-size: 12px;
+}
+@media (prefers-color-scheme: dark) {
+  .dsh-wh-menu { background: var(--dsw-specific-menu, #2a2b2d); }
+}
+.dsh-wh-menu-group {
+  padding: 6px 8px 3px;
+  font-size: 10px;
+  color: var(--dsw-alias-label-tertiary, #81858c);
+  text-transform: none;
+}
+.dsh-wh-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  border-radius: var(--dsw-radius-sm, 6px);
+  cursor: pointer;
+}
+.dsh-wh-menu-item:hover { background: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.06)); }
+.dsh-wh-menu-item:focus-visible {
+  outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, #4d6bfe);
+  outline-offset: -1px;
+}
+.dsh-wh-menu-check {
+  flex: 0 0 12px;
+  width: 12px;
+  color: var(--dsw-alias-brand-primary, #4d6bfe);
+  font-size: 11px;
+}
+.dsh-wh-menu-text { flex: 1 1 auto; }
+
 /* ── 按钮 ──────────────────────────────────────────────────────── */
 .dsh-wh-btn {
   appearance: none;
@@ -186,7 +280,6 @@ export const OVERLAY_CSS = `
   color: var(--dsw-alias-label-tertiary, #81858c);
 }
 .dsh-wh-source { white-space: nowrap; }
-
 /* 滚动条：用 DSH 的滚动条 token，避免出现系统默认的白色粗条 */
 .dsh-wh-tip::-webkit-scrollbar { width: 8px; }
 .dsh-wh-tip::-webkit-scrollbar-track { background: transparent; }

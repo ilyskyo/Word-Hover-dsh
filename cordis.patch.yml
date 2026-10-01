@@ -35,11 +35,14 @@
         # ── 宿主端代理 ────────────────────────────────────────────
         proxy: true # 是否注册宿主端代理路由
         proxyRateLimitPerMinute: 120 # 每个来源 IP 每分钟最多几次查词
+        # ── 发音 ─────────────────────────────────────────────────
+        accent: us # 朗读口音与美国/英国音标：us（美音，默认）| uk（英音）
         # ── 展示 ─────────────────────────────────────────────────
         showPartOfSpeech: true
-        showPhonetic: true
+        phoneticDisplay: us # 音标显示：no 不显示 | us 只美音 | uk 只英音 | both 英美都显示
         showDefinition: true # 英文释义
         showExample: true # 例句
+        showTags: true # 话题 · 标签（单独成行）
         showSource: true # 来源标识
         # ── 排除规则 ──────────────────────────────────────────────
         # 命中这些选择器的元素内部不做任何处理（代码块等默认已排除）

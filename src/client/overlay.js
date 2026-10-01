@@ -12,6 +12,7 @@
 import { OVERLAY_CSS } from './styles.js';
 import { renderDictionaryBody, renderLoadingBody } from './render.js';
 import { HOST_DEFAULTS } from './config.js';
+import { OverflowMenu } from './menu.js';
 
 /** 浮层与视口边缘的最小距离。 */
 export const OVERLAY_EDGE_MARGIN = 8;
@@ -147,6 +148,8 @@ export class Overlay {
     this.currentRect = null;
     this.currentRects = [];
     this.requestVersion = 0;
+    /** 纵向溢出菜单（懒创建：只有需要时才建） */
+    this.menu = null;
   }
 
   // ── 高亮 ────────────────────────────────────────────────────────
@@ -234,14 +237,26 @@ export class Overlay {
     return hint;
   }
 
-  /** 顶部操作按钮（发音、锁定）。由外层在 showInfo 后调用以注入交互。 */
-  mountHeaderActions({ onSpeak, onToggleLock, locked, canSpeak }) {
+  /**
+   * 顶部操作按钮：朗读、锁定、纵向溢出菜单。
+   *
+   * 三点的位置固定在锁定键右侧 —— 这样「锁定」永远是最后一个主操作，
+   * 新增的设置项都收进菜单里，不会让头部越来越挤。
+   *
+   * @param {object} options
+   *   onSpeak, onToggleLock, locked, canSpeak            与之前一致
+   *   menuItems?: Array<object>                          菜单项（见 menu.js）
+   *   accent?: 'us'|'uk'                                 当前口音，用于按钮提示
+   *   onMenuSelect?: (id, value) => void
+   */
+  mountHeaderActions({ onSpeak, onToggleLock, locked, canSpeak, menuItems = [], accent = 'us', onMenuSelect } = {}) {
     const doc = this.host.ownerDocument;
     const head = this.body.querySelector('.dsh-wh-head');
     if (!head) return;
 
-    // 清掉旧的按钮组，避免重复注入
+    // 清掉旧的按钮组与已打开的菜单，避免重复注入
     head.querySelector('.dsh-wh-header-actions')?.remove();
+    this.menu?.close();
 
     const actions = doc.createElement('div');
     actions.className = 'dsh-wh-header-actions';
@@ -251,7 +266,8 @@ export class Overlay {
       speakBtn.type = 'button';
       speakBtn.className = 'dsh-wh-btn';
       speakBtn.textContent = '🔊 朗读';
-      speakBtn.setAttribute('aria-label', '朗读这个单词');
+      speakBtn.setAttribute('aria-label', `朗读这个单词（${accent === 'uk' ? '英音' : '美音'}）`);
+      speakBtn.title = accent === 'uk' ? '朗读（英音）' : '朗读（美音）';
       speakBtn.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -273,6 +289,19 @@ export class Overlay {
         onToggleLock();
       });
       actions.append(lockBtn);
+    }
+
+    // 竖三点：锁定键右侧
+    if (menuItems.length > 0) {
+      if (!this.menu) this.menu = new OverflowMenu(this.shadow, doc);
+      // 每次都刷新菜单配置，让触发器直接读最新值（不做函数包装，避免层层叠加）
+      this.menu.setItems(menuItems, onMenuSelect);
+      const trigger = this.menu.createTrigger('更多设置');
+      trigger.addEventListener('click', (event) => {
+        // 阻止冒泡到文档，否则会被判定为「点击外部」而关掉浮层
+        event.stopPropagation();
+      });
+      actions.append(trigger);
     }
 
     if (actions.childElementCount > 0) head.append(actions);
@@ -387,6 +416,8 @@ export class Overlay {
   destroy() {
     this.requestVersion += 1;
     this.hide();
+    this.menu?.destroy();
+    this.menu = null;
     this.shadow.replaceChildren();
   }
 }
@@ -494,10 +525,20 @@ export function buildSettingsPanel(doc, config, handlers) {
     ['suggest', '有道简版（最快、字段少）'],
     ['custom', '自定义后端'],
   ])));
-  panel.append(row('显示音标', '', switchControl('showPhonetic', config.showPhonetic, '显示音标')));
+  panel.append(row('发音口音', '朗读与默认音标用哪种口音', selectControl('accent', config.accent, '发音口音', [
+    ['us', '美音（默认）'],
+    ['uk', '英音'],
+  ])));
+  panel.append(row('音标显示', '浮层顶部展示哪个音标', selectControl('phoneticDisplay', config.phoneticDisplay, '音标显示', [
+    ['us', '只显示美音'],
+    ['uk', '只显示英音'],
+    ['both', '英美都显示'],
+    ['no', '不显示'],
+  ])));
   panel.append(row('显示词性', '', switchControl('showPartOfSpeech', config.showPartOfSpeech, '显示词性')));
   panel.append(row('显示英文释义', '', switchControl('showDefinition', config.showDefinition, '显示英文释义')));
   panel.append(row('显示例句', '', switchControl('showExample', config.showExample, '显示例句')));
+  panel.append(row('显示话题 · 标签', '单独成行显示考试/话题标签', switchControl('showTags', config.showTags, '显示话题 · 标签')));
   panel.append(row('显示来源标识', '', switchControl('showSource', config.showSource, '显示来源标识')));
 
   const notice = doc.createElement('div');

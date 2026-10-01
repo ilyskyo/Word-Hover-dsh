@@ -34,6 +34,7 @@ const MODULES = [
   { file: 'word.js', ns: '__Word', exports: ['MAX_WORD_LENGTH', 'SKIP_TAGS', 'SKIP_CLASS_SELECTOR', 'normalizeWord', 'isLookupCandidate', 'trimToSingleWord', 'wordAtOffset', 'allWordsIn', 'pointHitsRects', 'HIT_INSET_TOP', 'HIT_INSET_BOTTOM'] },
   { file: 'lru.js', ns: '__Lru', exports: ['LruMap'] },
   { file: 'styles.js', ns: '__Styles', exports: ['OVERLAY_CSS'] },
+  { file: 'menu.js', ns: '__Menu', exports: ['OverflowMenu'] },
   { file: 'render.js', ns: '__Render', exports: ['translatePos', 'stripTags', 'normalizeWordInfo', 'renderDictionaryBody', 'renderLoadingBody', 'SOURCE_LABELS'] },
   { file: 'dom.js', ns: '__Dom', exports: ['FLOW_KIND_ATTR', 'ASSISTANT_KIND', 'domRoots', 'domInvalidateRoots', 'domWordAtPoint', 'domBlockSignature', 'domBuildWordIndex', 'domIsExcluded', 'domIsInsideAssistant', 'domVisibleAssistantBlocks'] },
   { file: 'sessionmemo.js', ns: '__SessionMemo', exports: ['SessionMemo', 'DEFAULT_MISS_SUPPRESS_MS'] },
@@ -114,7 +115,7 @@ ${parts.join('\n\n')}
     // 对外暴露一份扁平 API，便于排错与无 DSH 环境下的自测
     const api = Object.assign(
       {},
-      __Config, __Word, __Lru, __Styles, __Render, __Dom,
+      __Config, __Word, __Lru, __Styles, __Menu, __Render, __Dom,
       __SessionMemo, __Speak, __Lookup, __Overlay, __Main,
     );
     globalThis.__DSH_WORD_HOVER_API__ = { controller: null, api };

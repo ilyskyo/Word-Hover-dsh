@@ -33,10 +33,15 @@ export const HOST_DEFAULTS = Object.freeze({
   missSuppressMs: 300000,
   proxy: true,
   proxyRateLimitPerMinute: 120,
+  /** 发音口音：'us' 美音（默认）| 'uk' 英音。也决定朗读用哪个音标对应的录音。 */
+  accent: 'us',
+  /** 音标显示：'no' 不显示 | 'us' 只显示美音 | 'uk' 只显示英音 | 'both' 英美都显示 */
+  phoneticDisplay: 'us',
   showPartOfSpeech: true,
-  showPhonetic: true,
   showDefinition: true,
   showExample: true,
+  /** 话题 · 标签：单独成行显示 */
+  showTags: true,
   showSource: true,
   excludeSelectors: [],
 });
@@ -45,6 +50,7 @@ export const HOST_DEFAULTS = Object.freeze({
  * 允许前端设置面板修改并持久化的字段。
  * 注意 enabled 也在其中：它是「运行时可覆盖」的总开关，
  * 用户在设置面板关掉后必须能在刷新后保持关闭。
+ * overflow 菜单里的选项也走这里，这样用户改了就能记住。
  */
 export const USER_EDITABLE_KEYS = Object.freeze([
   'enabled',
@@ -54,10 +60,12 @@ export const USER_EDITABLE_KEYS = Object.freeze([
   'lockOnClick',
   'speakEnabled',
   'provider',
+  'accent',
+  'phoneticDisplay',
   'showPartOfSpeech',
-  'showPhonetic',
   'showDefinition',
   'showExample',
+  'showTags',
   'showSource',
 ]);
 
@@ -65,6 +73,8 @@ const STORAGE_KEY = 'dsh-plugin-word-hover:settings:v1';
 
 const TRIGGERS = new Set(['hover', 'click']);
 const PROVIDERS = new Set(['youdao', 'freedict', 'suggest', 'custom', 'auto']);
+const ACCENTS = new Set(['us', 'uk']);
+const PHONETIC_DISPLAY = new Set(['no', 'us', 'uk', 'both']);
 
 /** 把任意输入夹到合法区间。 */
 export function clampNumber(value, min, max, fallback) {
@@ -121,10 +131,12 @@ export function buildConfig(hostConfig, saved) {
       merged.proxyRateLimitPerMinute, 10, 6000, HOST_DEFAULTS.proxyRateLimitPerMinute,
     ),
     showPartOfSpeech: asBool(merged.showPartOfSpeech, HOST_DEFAULTS.showPartOfSpeech),
-    showPhonetic: asBool(merged.showPhonetic, HOST_DEFAULTS.showPhonetic),
     showDefinition: asBool(merged.showDefinition, HOST_DEFAULTS.showDefinition),
     showExample: asBool(merged.showExample, HOST_DEFAULTS.showExample),
+    showTags: asBool(merged.showTags, HOST_DEFAULTS.showTags),
     showSource: asBool(merged.showSource, HOST_DEFAULTS.showSource),
+    accent: asEnum(merged.accent, ACCENTS, HOST_DEFAULTS.accent),
+    phoneticDisplay: asEnum(merged.phoneticDisplay, PHONETIC_DISPLAY, HOST_DEFAULTS.phoneticDisplay),
     excludeSelectors,
   });
 }

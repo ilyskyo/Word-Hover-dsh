@@ -107,7 +107,15 @@ check('英文释义里的 <b> 被清除', info.meanings.every((m) => !/<b>/.test
 check('有中文释义', info.meanings.some((m) => /你好|招呼|问候/.test(m.translation || '')), '');
 check('有英汉对照例句', info.meanings.some((m) => /Hello, Trish/.test(m.example || '') && /你好/.test(m.example || '')), '');
 check('词形变化并入首条释义', /变形：/.test(info.meanings[0].definition || ''), info.meanings[0].definition || '');
-check('考试标签并入首条释义', /标签：/.test(info.meanings[0].definition || ''), info.meanings[0].definition || '');
+check('话题 · 标签单独返回（不再并入释义）', Array.isArray(info.tags) && info.tags.includes('CET4'), JSON.stringify(info.tags));
+check('释义里不再混入标签', !/标签：/.test(info.meanings[0].definition || ''), info.meanings[0].definition || '');
+check('美音音标单独返回', info.usPhonetic === 'həˈloʊ', String(info.usPhonetic));
+check('英音音标单独返回', info.ukPhonetic === 'həˈləʊ', String(info.ukPhonetic));
+check('音频按口音拆分', typeof info.audio === 'object' && typeof info.audio.us === 'string', JSON.stringify(info.audio));
+check('美音地址带 type=2', /type=2$/.test(info.audio.us), String(info.audio.us));
+check('英音地址带 type=1', /type=1$/.test(info.audio.uk), String(info.audio.uk));
+// 回归：曾经把整串 usspeech 做了 encodeURIComponent，& 被编成 %26 导致服务端 500
+check('地址里不能出现被编码的 & 或 =', !/%26|%3D/i.test(info.audio.us + info.audio.uk), String(info.audio.us));
 check('没有 error 字段', !info.error, info.error || '');
 
 console.log('\n[2] 边界情况');
