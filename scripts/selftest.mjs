@@ -303,28 +303,34 @@ if (api) {
   check('translatePos 映射 int. → 感叹词', api.translatePos('int.') === '感叹词', api.translatePos('int.'));
   check('translatePos 映射多词性', api.translatePos('n./v.') === '名词/动词', api.translatePos('n./v.'));
   check('translatePos 映射 n-count', api.translatePos('N-COUNT') === '可数名词', api.translatePos('N-COUNT'));
-  // 回归：确认插件**没有**缓存层（主源条款禁止缓存返回数据）
-  check('已不存在 WordCache（缓存层整体移除）', typeof api.WordCache === 'undefined', String(typeof api.WordCache));
-  check('已不存在 cacheKey', typeof api.cacheKey === 'undefined', String(typeof api.cacheKey));
-  check('改为 SessionMemo（只做去重与失败抑制）', typeof api.SessionMemo === 'function', String(typeof api.SessionMemo));
+  // SessionMemo：只做在途折叠与失败抑制，不保存任何释义内容
+  check('SessionMemo 已导出', typeof api.SessionMemo === 'function', String(typeof api.SessionMemo));
 
-  // SessionMemo 行为：只记"查不到"这一事实，不保存任何释义内容
-  const memo = new api.SessionMemo({ negativeTtlMs: 1000 });
+  const memo = new api.SessionMemo({ missSuppressMs: 1000 });
   check('初始不认为已知 miss', memo.isKnownMiss('ghost') === false);
   memo.markMiss('ghost');
   check('标记后认为已知 miss', memo.isKnownMiss('ghost') === true);
-  const memoTtl0 = new api.SessionMemo({ negativeTtlMs: 0 });
-  memoTtl0.markMiss('ghost');
-  check('TTL=0 时完全不记录', memoTtl0.isKnownMiss('ghost') === false);
-  const memoExpired = new api.SessionMemo({ negativeTtlMs: 1 });
+  const memoOff = new api.SessionMemo({ missSuppressMs: 0 });
+  memoOff.markMiss('ghost');
+  check('抑制时长为 0 时完全不记录', memoOff.isKnownMiss('ghost') === false);
+  const memoExpired = new api.SessionMemo({ missSuppressMs: 1 });
   memoExpired.markMiss('ghost');
   await new Promise((r) => setTimeout(r, 20));
-  check('超过 TTL 后重新允许查询', memoExpired.isKnownMiss('ghost') === false);
-  check('SessionMemo 只存时间戳（不含释义）', (() => {
+  check('超过抑制时长后重新允许查询', memoExpired.isKnownMiss('ghost') === false);
+  check('miss 表里只存时间戳', (() => {
     memo.markMiss('x');
-    const v = memo.negatives.get('x');
-    return typeof v === 'number';
+    return typeof memo.misses.get('x') === 'number';
   })());
+  // 在途折叠：同一个词的并发调用只执行一次工厂函数
+  let factoryCalls = 0;
+  const memo2 = new api.SessionMemo({});
+  await Promise.all([
+    memo2.dedupe('word', async () => { factoryCalls += 1; await new Promise((r) => setTimeout(r, 30)); return 1; }),
+    memo2.dedupe('word', async () => { factoryCalls += 1; return 2; }),
+  ]);
+  check('并发同一词只执行一次', factoryCalls === 1, String(factoryCalls));
+  check('结束后在途表已清空', memo2.inflightCount === 0, String(memo2.inflightCount));
+
   check('buildConfig 夹取非法延迟', api.buildConfig({ hoverDelayMs: 99999 }, null).hoverDelayMs === 2000, String(api.buildConfig({ hoverDelayMs: 99999 }, null).hoverDelayMs));
   check('buildConfig 默认 provider', api.buildConfig({}, null).provider === 'youdao');
   check('buildConfig 忽略非法的 trigger', api.buildConfig({ trigger: 'evil' }, null).trigger === 'hover');

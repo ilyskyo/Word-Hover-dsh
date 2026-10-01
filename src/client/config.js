@@ -4,15 +4,13 @@
  * 设计要点：
  *  - 宿主端 config（cordis.patch.yml）提供「初始化默认值」；
  *  - 用户在设置面板里的改动存 localStorage，下次启动覆盖宿主端默认值；
- *  - 只允许改「用户可见」的字段，代理限流/缓存容量等宿主端字段不允许被前端篡改。
+ *  - 只允许改「用户可见」的字段；代理限流等宿主端字段不允许被前端篡改。
  */
 
 /**
  * 宿主端 Cordis 配置的默认值（与 cordis.patch.yml 保持一致）。
  *
- * ⚠️ 这里**没有任何缓存时长配置**，这是有意为之：
- *    主源（有道公开网页接口）的权利人条款明确写着返回数据「严禁缓存、再利用与转卖」。
- *    因此插件默认不保存任何释义内容，每次查词都真实请求上游。
+ * 配置里没有存储类选项：释义只在本次调用链路里流转，不写入任何地方。
  */
 export const HOST_DEFAULTS = Object.freeze({
   enabled: true,
@@ -29,10 +27,10 @@ export const HOST_DEFAULTS = Object.freeze({
   lookupPath: '/word-hover/dict',
   allowDirectFallback: false,
   /**
-   * 会话内「否定结果抑制」时长：上游答复"查不到"的词，在这段时间内不再重复请求。
-   * 只记布尔事实，不保存任何释义内容；设为 0 则完全不记。
+   * 失败抑制时长：上游答复「查不到」的词，在这段时间内不再重复请求。
+   * 设为 0 表示从不抑制，每个词都重新请求。
    */
-  sessionTtlMs: 300000,
+  missSuppressMs: 300000,
   proxy: true,
   proxyRateLimitPerMinute: 120,
   showPartOfSpeech: true,
@@ -117,7 +115,7 @@ export function buildConfig(hostConfig, saved) {
     concurrency: clampNumber(merged.concurrency, 1, 8, HOST_DEFAULTS.concurrency),
     lookupPath: typeof merged.lookupPath === 'string' && merged.lookupPath ? merged.lookupPath : HOST_DEFAULTS.lookupPath,
     allowDirectFallback: asBool(merged.allowDirectFallback, HOST_DEFAULTS.allowDirectFallback),
-    sessionTtlMs: clampNumber(merged.sessionTtlMs, 0, 3600000, HOST_DEFAULTS.sessionTtlMs),
+    missSuppressMs: clampNumber(merged.missSuppressMs, 0, 3600000, HOST_DEFAULTS.missSuppressMs),
     proxy: asBool(merged.proxy, HOST_DEFAULTS.proxy),
     proxyRateLimitPerMinute: clampNumber(
       merged.proxyRateLimitPerMinute, 10, 6000, HOST_DEFAULTS.proxyRateLimitPerMinute,

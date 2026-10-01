@@ -36,7 +36,7 @@ const MODULES = [
   { file: 'styles.js', ns: '__Styles', exports: ['OVERLAY_CSS'] },
   { file: 'render.js', ns: '__Render', exports: ['translatePos', 'stripTags', 'normalizeWordInfo', 'renderDictionaryBody', 'renderLoadingBody', 'SOURCE_LABELS'] },
   { file: 'dom.js', ns: '__Dom', exports: ['FLOW_KIND_ATTR', 'ASSISTANT_KIND', 'domRoots', 'domInvalidateRoots', 'domWordAtPoint', 'domBlockSignature', 'domBuildWordIndex', 'domIsExcluded', 'domIsInsideAssistant', 'domVisibleAssistantBlocks'] },
-  { file: 'sessionmemo.js', ns: '__SessionMemo', exports: ['SessionMemo', 'DEFAULT_NEGATIVE_TTL_MS'] },
+  { file: 'sessionmemo.js', ns: '__SessionMemo', exports: ['SessionMemo', 'DEFAULT_MISS_SUPPRESS_MS'] },
   { file: 'speak.js', ns: '__Speak', exports: ['speak', 'stopSpeaking', 'warmUpVoices', '__setSpeakImplForTest'] },
   { file: 'lookup.js', ns: '__Lookup', exports: ['DictionaryLookup'] },
   { file: 'overlay.js', ns: '__Overlay', exports: ['Overlay', 'buildSettingsPanel', 'OVERLAY_EDGE_MARGIN', 'EDGE_MARGIN', 'computePosition', 'defaultHintText'] },

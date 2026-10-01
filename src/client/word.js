@@ -30,7 +30,7 @@ export const SKIP_CLASS_SELECTOR = [
   '.dsh-wh-layer', // 本插件自己的浮层
 ].join(',');
 
-/** 把原始文本规范成缓存 key：小写、去掉首尾符号。 */
+/** 把原始文本规范化：小写、去掉首尾符号。 */
 export function normalizeWord(raw) {
   if (typeof raw !== 'string') return '';
   return raw

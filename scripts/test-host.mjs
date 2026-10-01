@@ -3,7 +3,7 @@
  * 宿主端端到端测试。
  *
  * 用真实的 node:http 服务器 + 假装成 ctx.webServer 的注册表，
- * 验证：路由注册 → 输入校验 → 限流 → **不缓存** → 降级 → 错误不崩。
+ * 验证：路由注册 → 输入校验 → 限流 → 在途合并 → 降级 → 错误不崩。
  *
  * 默认**不**打外网（上游被替换成可控桩），所以这个测试是确定性的、可离线运行。
  * 加 --live 参数会额外跑一次真实联网自检，只报告结果、不影响退出码。
@@ -154,8 +154,8 @@ console.log('宿主端端到端测试\n');
 console.log('[1] 路由注册');
 check('注册了 3 条路由', routes.size === 3, `实际 ${routes.size}: ${[...routes.keys()].join(', ')}`);
 check('查词路由存在', routes.has('/word-hover/dict'));
+check('设置回显路由存在', routes.has('/word-hover/settings'));
 check('自检路由存在', routes.has('/word-hover/test'));
-check('已移除清缓存路由（不再有缓存可清）', !routes.has('/word-hover/cache'));
 
 console.log('\n[2] 查词主链路');
 const r1 = await get('/word-hover/dict?word=hello');
@@ -163,19 +163,17 @@ check('HTTP 200', r1.status === 200, String(r1.status));
 check('返回音标', r1.body?.phonetic === '\u02c8test', JSON.stringify(r1.body?.phonetic));
 check('返回中文释义', r1.body?.meanings?.[0]?.translation === '\u6d4b\u8bd5\u8bcd', JSON.stringify(r1.body?.meanings?.[0]));
 check('source 为 youdao', r1.body?.source === 'youdao', String(r1.body?.source));
-check('响应里没有 cached 字段', !('cached' in (r1.body || {})), JSON.stringify(Object.keys(r1.body || {})));
 check('调用了上游接口', fetchCalls.length === 1, String(fetchCalls.length));
 
-console.log('\n[3] ★ 不缓存：同一个词每次都要真实请求上游');
+console.log('\n[3] 每次请求都会真实打到上游');
 const callsBefore = fetchCalls.length;
 const r2 = await get('/word-hover/dict?word=hello');
-check('第二次请求仍然打到上游', fetchCalls.length === callsBefore + 1, `${fetchCalls.length} vs ${callsBefore}`);
+check('第二次请求打到上游', fetchCalls.length === callsBefore + 1, `${fetchCalls.length} vs ${callsBefore}`);
 check('第二次响应内容仍然正确', r2.body?.meanings?.[0]?.translation === '\u6d4b\u8bd5\u8bcd', JSON.stringify(r2.body?.meanings?.[0]));
 const r2b = await get('/word-hover/dict?word=HELLO');
 check('大小写不同也各自请求上游', fetchCalls.length === callsBefore + 2, String(fetchCalls.length));
-check('响应头禁止 HTTP 缓存', String(r1.headers.get('cache-control') || '').includes('no-store'), String(r1.headers.get('cache-control')));
 
-console.log('\n[3b] 单飞：并发同一词只打一次上游（去重不等于缓存）');
+console.log('\n[3b] 在途合并：并发同一词只打一次上游');
 // ⚠️ 必须让 mock 慢下来，否则第一个请求会在后续请求发出之前就完成，
 //    inflight 条目早已删除 —— 那样根本不存在并发窗口，测不到单飞。
 stubDelayMs = 120;

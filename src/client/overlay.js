@@ -36,12 +36,8 @@ const MIN_READABLE_HEIGHT = 150;
  * 之前因为按钮挂载失败，那句提示指向了一个不存在的按钮。
  * 按钮自己带图标和文字，不需要再教用户点哪里。
  */
-export function defaultHintText({ locked = false, stale = false } = {}) {
-  const parts = [];
-  if (locked) parts.push('已锁定 · Esc 或点击空白处关闭');
-  else parts.push('Esc 关闭 · 点击单词可锁定');
-  if (stale) parts.push('离线缓存');
-  return parts.join(' · ');
+export function defaultHintText({ locked = false } = {}) {
+  return locked ? '已锁定 · Esc 或点击空白处关闭' : 'Esc 关闭 · 点击单词可锁定';
 }
 
 /**
@@ -213,31 +209,28 @@ export class Overlay {
   /**
    * 渲染词典结果。
    * @param {object} info 规范化后的 WordInfo
-   * @param {{options?:object, speak?:boolean, locked?:boolean, stale?:boolean}} flags
+   * @param {{options?:object, locked?:boolean}} flags
    */
   showInfo(info, flags = {}) {
     const doc = this.host.ownerDocument;
-    const { options = HOST_DEFAULTS, speak = true, locked = false, stale = false } = flags;
+    const { options = HOST_DEFAULTS, locked = false } = flags;
     this.requestVersion += 1;
 
     const frag = doc.createDocumentFragment();
-    const body = renderDictionaryBody(doc, info, options);
-    frag.append(body);
-    frag.append(this.buildHint(info, { speak, locked, stale }));
+    frag.append(renderDictionaryBody(doc, info, options));
+    frag.append(this.buildHint({ locked }));
     this.body.replaceChildren(frag);
     this.tip.setAttribute('aria-hidden', 'false');
   }
 
   /** 底部操作区：状态的可见反馈（默认文案由 defaultHintText 统一给出）。 */
-  buildHint(info, { speak, locked, stale }) {
+  buildHint({ locked = false } = {}) {
     const doc = this.host.ownerDocument;
     const hint = doc.createElement('div');
     hint.className = 'dsh-wh-hint';
     hint.setAttribute('role', 'status');
     hint.setAttribute('aria-live', 'polite');
-    hint.textContent = defaultHintText({ locked, stale });
-    void speak;
-    void info;
+    hint.textContent = defaultHintText({ locked });
     return hint;
   }
 
@@ -509,7 +502,7 @@ export function buildSettingsPanel(doc, config, handlers) {
 
   const notice = doc.createElement('div');
   notice.className = 'dsh-wh-notice';
-  notice.textContent = '本插件不缓存释义内容：每次悬停都会真实请求词典接口，结果只显示在浮层里、用完即弃。主词库为公开词典接口，返回数据版权归原词典所有，仅供个人学习使用；请勿批量抓取或再分发。若需商用，请在 cordis.patch.yml 里把 provider 改为 custom 并指向你自有的合规后端。';
+  notice.textContent = '主词库为公开词典接口，返回数据版权归原词典所有，仅供个人学习使用；请勿批量抓取或再分发。若需商用，请在 cordis.patch.yml 里把 provider 改为 custom 并指向你自有的合规后端。';
   panel.append(notice);
 
   const actions = doc.createElement('div');

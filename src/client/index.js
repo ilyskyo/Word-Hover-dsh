@@ -10,9 +10,7 @@
  *  5. 新消息与流式输出自动生效：**不使用 MutationObserver，也不预扫描文本**。
  *     每次悬停都是「按鼠标坐标即时查询 DOM」，所以新出现的、正在流式的文本
  *     天然就能被命中；同时避免了 1000 词消息的预计算卡顿。
- *  6. **不缓存任何释义内容**：主源条款禁止缓存返回数据，
- *     因此每次查词都真实请求上游，结果只存在于调用栈里。
- *     没有内存词典、没有 IndexedDB、没有 localStorage 词条。
+ *  6. 查词结果不写入任何持久容器：只在本次调用链路里流转，渲染进浮层后即随关闭丢弃。
  *  7. API 失败不抛异常：统一返回 error 态，浮层显示中文提示。
  *  8. 关闭开关后完全不处理：enabled=false 时所有监听器直接 return，浮层清空。
  *  9. 不破坏复制的关键：**从不修改宿主 DOM**，高亮是 Shadow DOM 里的覆盖块。
@@ -141,7 +139,7 @@ export function createWordHover({ config: hostConfig } = {}) {
     window.__DSH_WORD_HOVER__ = {
       openSettings,
       closeSettings,
-      /** 中止在途请求并清空会话内临时状态（没有缓存可清） */
+      /** 中止在途请求并清空会话内临时状态 */
       abortAllRequests: () => lookup?.abortAll(),
       getConfig: () => settings.get(),
       setConfig: (patch) => settings.patch(patch),
@@ -482,8 +480,7 @@ export function createWordHover({ config: hostConfig } = {}) {
 
     overlay.showHighlight(hit.rects, { locked: false });
 
-    // 每次查词都真实请求上游：不读缓存、不写缓存。
-    // 主源的权利人条款禁止缓存返回数据，因此这里连"先显示旧结果"的路径都没有。
+    // 查词：先出骨架，拿到结果再填充
     overlay.showLoading(hit.word);
     overlay.position(hit.rects[0]);
     const info = await lookup.lookup(hit.word);
@@ -498,9 +495,7 @@ export function createWordHover({ config: hostConfig } = {}) {
     const config = settings.get();
     overlay.showInfo(info, {
       options: config,
-      speak: config.speakEnabled,
       locked: state.mode === 'locked',
-      stale: false,
     });
     overlay.position(hit.rects[0]);
     overlay.mountHeaderActions({

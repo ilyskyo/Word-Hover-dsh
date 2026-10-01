@@ -3,7 +3,6 @@
  *
  * 满足的硬性要求：
  *  - 只在悬停/点击时才请求（调用方驱动，本模块不主动预取）
- *  - **不缓存任何释义内容**（见 sessionmemo.js 的说明）
  *  - 请求折叠：同一瞬间对同一个词的重复请求合并成一次
  *  - 并发上限 4（可配置，1–8）
  *  - 超时 8s（可配置）
@@ -99,20 +98,20 @@ export class DictionaryLookup {
     const config = settings.get();
 
     this.semaphore = new Semaphore(config.concurrency);
-    this.memo = new SessionMemo({ negativeTtlMs: config.sessionTtlMs });
+    this.memo = new SessionMemo({ negativeTtlMs: config.missSuppressMs });
     this.controller = new AbortController(); // 生命周期级取消
     this.disposed = false;
     this.settleWaiters = [];
 
     this.unsubscribe = settings.subscribe((next) => {
       this.semaphore.setLimit(next.concurrency);
-      this.memo.setNegativeTtl(next.sessionTtlMs);
+      this.memo.setNegativeTtl(next.missSuppressMs);
     });
   }
 
   /**
    * 查询一个单词。
-   * 结果只存在于返回的 Promise 里，不写入任何长期容器。
+   * 结果只存在于返回的 Promise 里。
    *
    * @param {string} rawWord 界面上的原始词形
    * @param {{signal?:AbortSignal, force?:boolean}} [options] force=true 时忽略失败抑制
@@ -177,8 +176,6 @@ export class DictionaryLookup {
       headers: { accept: 'application/json' },
       signal,
       credentials: 'same-origin',
-      // 明确要求浏览器也不复用查词结果
-      cache: 'no-store',
     });
     if (!response.ok) {
       // 4xx 是「这个词查不到」，不是网络故障，直接按错误态展示，不触发直连降级
@@ -216,7 +213,7 @@ export class DictionaryLookup {
    */
   async fetchDirect(word, signal) {
     const url = `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`;
-    const response = await fetch(url, { signal, cache: 'no-store' });
+    const response = await fetch(url, { signal });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const payload = await response.json();
     const entry = Array.isArray(payload)
@@ -265,7 +262,6 @@ export class DictionaryLookup {
 
   /**
    * 中止全部在途请求并清空会话内的临时状态。
-   * 注意：这里没有「缓存」可清，只有在途请求与失败标记。
    */
   abortAll() {
     this.controller.abort('abort-all');

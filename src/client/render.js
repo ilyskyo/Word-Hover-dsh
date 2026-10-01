@@ -183,7 +183,7 @@ export function renderDictionaryBody(doc, info, options = {}) {
   return frag;
 }
 
-/** 底部：来源标识（本插件不缓存，所以没有「缓存」标记）。 */
+/** 底部：来源标识。 */
 function renderFooter(doc, info, opt) {
   const foot = doc.createElement('div');
   foot.className = 'dsh-wh-foot';
@@ -203,7 +203,6 @@ export const SOURCE_LABELS = Object.freeze({
   'youdao-suggest': '有道（简版）',
   freedict: 'Free Dictionary',
   custom: '自定义后端',
-  cache: '缓存',
   error: '暂无',
   unknown: '未知来源',
   'direct-fallback': '直连降级',

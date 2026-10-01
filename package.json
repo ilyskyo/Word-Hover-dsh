@@ -8,14 +8,20 @@
     "dsh",
     "dsh-plugin",
     "deepseek-harness",
+    "deepseek",
     "dictionary",
     "english",
     "chinese",
     "hover",
-    "translation"
+    "translation",
+    "vocabulary"
   ],
   "main": "lib/index.js",
   "icon": "./icon.svg",
+  "meta": {
+    "title": "英文悬停词典",
+    "description": "悬停 AI 英文回复中的任意单词，高亮并弹出音标、词性、中文释义、英文释义与双语例句。"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ilyskyo/Word-Hover-dsh.git"

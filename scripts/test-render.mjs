@@ -184,7 +184,7 @@ console.log('\n[6] 提示文案不再指向按钮（历史 bug：提示了不存
 check('无按钮指路文案', !/点击\s*🔊|点击喇叭/.test(OVERLAY_CSS + defaultHintText({})),
   defaultHintText({}));
 check('锁定时提示如何解除', /Esc/.test(defaultHintText({ locked: true })), defaultHintText({ locked: true }));
-check('离线缓存态有标识', /缓存/.test(defaultHintText({ stale: true })), defaultHintText({ stale: true }));
+check('未锁定时提示可锁定', /锁定/.test(defaultHintText({ locked: false })), defaultHintText({ locked: false }));
 
 console.log(`\n结果：${checks - failures}/${checks} 通过`);
 if (failures > 0) { console.log(`失败 ${failures} 项`); process.exitCode = 1; } else { console.log('全部通过 ✓'); }
